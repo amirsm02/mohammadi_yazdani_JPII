@@ -22,20 +22,21 @@ J2meV = 10**3/e # joules to meV conversion factor
 a0 = 2.46*10**(-10) # graphene carbon-carbon spacing (m)
 
 eta = 1 # valley
-i=np.complex(0,1)
+i=complex(0,1)
 
 ### paramters
 
-# hopping (J)
-#g0 = 2.61*10**3/J2meV
-#g1 = 0.361*10**3/J2meV
-#g3 = 0
-#g4 = 0.138*10**3/J2meV
+# hopping (J) new
+# g0 = 2.61*10**3/J2meV
+# g1 = 0.361*10**3/J2meV
+# g3 = 0
+# g4 = 0.138*10**3/J2meV
 
+# old
 g0 = 2.61*10**3/J2meV
 g1 = 0.361*10**3/J2meV
 g3 = 0#-0.283*10**3/J2meV
-g4 = 0.138*10**3/J2meV
+g4 = -0.138*10**3/J2meV
 
 # 
 Dp = 0.015*10**3/J2meV
@@ -45,8 +46,7 @@ D10=9.7/J2meV
 EZ=3.58/J2meV
 
 # B=0 (J)
-v0 = np.sqrt(3)*a0*g0/(2*hbar)
-v4 = np.sqrt(3)*a0*g4/(2*hbar)
+v0 = np.sqrt(3)*a0*np.abs(g0)/(2*hbar)
 
 # standard operators
 def a_creat():
@@ -99,24 +99,28 @@ def bg_h(B,u,N):
     # eta=+-1 for K,K' respectively
     # eta=1 basis: A,B',B,A', eta=-1 basis: B',A,A',B
 
-    hw0=30.6*np.sqrt(B)/J2meV # J
+    # hw0=30.6*np.sqrt(B)/J2meV # J
+    
     
     l=np.sqrt(hbar/(e*B))
+    hw0=hbar*v0*np.sqrt(2)/l
     
     # omegas
-    w0=hbar*v0*np.sqrt(2)/l
+    w0=hw0
     w4=g4/g0*w0
     w3=g3/g0*w0
     
-    h=J2meV*hw0*np.block([[eta*u/(2*hw0)*id_d,z,ad,-g4/g0*ad],
-                           [z,-eta*u/(2*hw0)*id_d,-g4/g0*a,a],
-                           [a,-g4/g0*ad,(eta*u/2+Dp)/hw0*id_d,g1/hw0*id_d],
-                           [-g4/g0*a,ad,g1/hw0*id_d,(-eta*u/2+Dp)/hw0*id_d]])
+    # # new
+    # h=J2meV*hw0*np.block([[eta*u/(2*hw0)*id_d,z,ad,-g4/g0*ad],
+                          # [z,-eta*u/(2*hw0)*id_d,-g4/g0*a,a],
+                          # [a,-g4/g0*ad,(eta*u/2+Dp)/hw0*id_d,g1/hw0*id_d],
+                          # [-g4/g0*a,ad,g1/hw0*id_d,(-eta*u/2+Dp)/hw0*id_d]])
 
-    # h=J2meV*np.block([[eta*u/2*id_d,w3*a,w4*ad,w0*ad],
-                      # [w3*ad,-eta*u/2*id_d,w0*a,w4*a],
-                      # [w4*a,w0*ad,(-eta*u/2+Dp)*id_d,g1*id_d],
-                      # [w0*a,w4*ad,g1*id_d,(eta*u/2+Dp)*id_d]])
+    # old
+    h=J2meV*np.block([[eta*u/2*id_d,w3*a,w4*ad,w0*ad],
+                     [w3*ad,-eta*u/2*id_d,w0*a,w4*a],
+                     [w4*a,w0*ad,(-eta*u/2+Dp)*id_d,g1*id_d],
+                     [w0*a,w4*ad,g1*id_d,(eta*u/2+Dp)*id_d]])
 
     if (eta==-1):
         basis_change=np.block([[z,id_d,z,z],[id_d,z,z,z],[z,z,z,id_d],[z,z,id_d,z]])
@@ -146,8 +150,10 @@ def sublattice_polarization(a, print_sublattice=0):
     # sublattice polarization alpha
     A=np.max(np.abs(a[0:dim]))
     Bp=np.max(np.abs(a[dim:2*dim]))
-    B=np.max(np.abs(a[2*dim:3*dim]))
-    Ap=np.max(np.abs(a[3*dim:]))
+    
+    # old interchange Ap, B
+    Ap=np.max(np.abs(a[2*dim:3*dim]))
+    B=np.max(np.abs(a[3*dim:]))
     
     # print(np.abs(Ap)/np.abs(A))
     
@@ -232,7 +238,7 @@ def band_structure(plot=0):
     
     return energy
 
-evals, evecs = bg_h(30,0/J2meV,0)
+evals, evecs = bg_h(31,0/J2meV,0)
 # print("energy", evals)
 
 r=3
