@@ -26,16 +26,10 @@ i=complex(0,1)
 
 ### paramters
 
-# hopping (J) new
-# g0 = 2.61*10**3/J2meV
-# g1 = 0.361*10**3/J2meV
-# g3 = 0
-# g4 = 0.138*10**3/J2meV
-
-# old
+# hopping (J)
 g0 = 2.61*10**3/J2meV
 g1 = 0.361*10**3/J2meV
-g3 = 0#-0.283*10**3/J2meV
+g3 = -0.283*10**3/J2meV #0 
 g4 = -0.138*10**3/J2meV
 
 # 
@@ -47,6 +41,7 @@ EZ=3.58/J2meV
 
 # B=0 (J)
 v0 = np.sqrt(3)*a0*np.abs(g0)/(2*hbar)
+v4 = np.sqrt(3)*a0*np.abs(g4)/(2*hbar)
 
 # standard operators
 def a_creat():
@@ -69,28 +64,64 @@ ad=a_creat()
 
 ###
 
-def bg_z(k,u,N):
-    # bilayer graphene in zero magnetic field (single particle)
-    # u: electric field between layers
-    # return eigenstate of Nth level, and all energy levels
-    # eta=+-1 for K,K' respectively
+def f(k):
+    d1=a0*np.array([0,1])
+    d2=-a0/2*np.array([np.sqrt(3),1])
+    d3=a0/2*np.array([np.sqrt(3),-1])
+    return np.exp(-i*np.dot(d1,k))+np.exp(-i*np.dot(d2,k))+np.exp(-i*np.dot(d3,k))
 
-    pi=hbar*(k[0]+i*k[1])
-    pid=hbar*(k[0]-i*k[1])
+###
 
-    h=J2meV*np.array([[eta*u/2,0,v0*pid,-v4*pid],
-                        [0,-eta*u/2,-v4*pi,v0*pi],
-                        [v0*pi,-v4*pid,(eta*u/2+Dp),g1],
-                        [-v4*pi,v0*pid,g1,(-eta*u/2+Dp)]])
-    #if (eta==-1):
-    #    basis_change=np.block([[z,id_d,z,z],[id_d,z,z,z],[z,z,z,id_d],[z,z,id_d,z]])
-    #    h=basis_change@h@basis_change
+def g_h(B):
+    
+    l=np.sqrt(hbar/(e*B))
+    h=J2meV*hbar*v0*np.sqrt(2)/l*np.block([[z,ad],[a,z]])
 
     eigenvalue, eigenvector=np.linalg.eig(h)
     eigenvector=np.transpose(eigenvector)
     eig_vecs_sorted=eigenvector[eigenvalue.argsort(),:]
+    eig_vals_sorted=np.sort(eigenvalue)
     
-    return np.sort(eigenvalue), eig_vecs_sorted[N]
+    # remove high-level states (there is no maximum state)
+    ad_diag=np.array(scipy.linalg.block_diag(ad,ad))
+    k=0
+    while (k<len(eig_vecs_sorted)):
+        raised_eig=ad_diag@np.transpose(eig_vecs_sorted[k])
+        if (not np.any(raised_eig)):
+            eig_vecs_sorted=np.delete(eig_vecs_sorted,k,0)
+            eig_vals_sorted=np.delete(eig_vals_sorted,k,0)
+            k+=-1
+        k+=1
+
+    return eig_vals_sorted
+    
+
+def bg_z(k,u):
+    # low energy
+    # bilayer graphene in zero magnetic field (single particle)
+    # u: electric field between layers
+    # return eigenstate of nth level, and all energy levels
+    # eta=+-1 for K,K' respectively
+
+    # low energy
+    #pi=hbar*(k[0]-i*k[1])
+    #pid=hbar*(k[0]+i*k[1])
+    
+    # general energy
+    pi=f(k)
+    pid=np.conjugate(pi)
+
+    h=J2meV*np.array([[eta*u/2,g3*pi,g4*pid,g0*pid],
+                      [g3*pid,-eta*u/2,g0*pi,g4*pi],
+                      [g4*pi,g0*pi,(-eta*u/2+Dp),g1],
+                      [g0*pi,g4*pid,g1,(eta*u/2+Dp)]])
+
+    eigenvalue, eigenvector=np.linalg.eig(h)
+    eigenvector=np.transpose(eigenvector)
+    eig_vecs_sorted=eigenvector[eigenvalue.argsort(),:]
+    eig_vals_sorted=np.sort(eigenvalue)
+    
+    return eig_vals_sorted #, np.array(eig_vecs_sorted)
 
 def bg_h(B,u,N):
     # bilayer graphene in magnetic field (single particle)
@@ -98,9 +129,6 @@ def bg_h(B,u,N):
     # return eigenstate of Nth level, and all energy levels
     # eta=+-1 for K,K' respectively
     # eta=1 basis: A,B',B,A', eta=-1 basis: B',A,A',B
-
-    # hw0=30.6*np.sqrt(B)/J2meV # J
-    
     
     l=np.sqrt(hbar/(e*B))
     hw0=hbar*v0*np.sqrt(2)/l
@@ -110,13 +138,8 @@ def bg_h(B,u,N):
     w4=g4/g0*w0
     w3=g3/g0*w0
     
-    # # new
-    # h=J2meV*hw0*np.block([[eta*u/(2*hw0)*id_d,z,ad,-g4/g0*ad],
-                          # [z,-eta*u/(2*hw0)*id_d,-g4/g0*a,a],
-                          # [a,-g4/g0*ad,(eta*u/2+Dp)/hw0*id_d,g1/hw0*id_d],
-                          # [-g4/g0*a,ad,g1/hw0*id_d,(-eta*u/2+Dp)/hw0*id_d]])
-
-    # old
+    # print(w0**2/g1*(-g4/g0+Dp/g1)*J2meV)
+   
     h=J2meV*np.block([[eta*u/2*id_d,w3*a,w4*ad,w0*ad],
                      [w3*ad,-eta*u/2*id_d,w0*a,w4*a],
                      [w4*a,w0*ad,(-eta*u/2+Dp)*id_d,g1*id_d],
@@ -127,7 +150,6 @@ def bg_h(B,u,N):
         h=basis_change@h@basis_change
 
     eigenvalue, eigenvector=np.linalg.eig(h)
-    
     eigenvector=np.transpose(eigenvector)
     eig_vecs_sorted=eigenvector[eigenvalue.argsort(),:]
     eig_vals_sorted=np.sort(eigenvalue)
@@ -143,26 +165,24 @@ def bg_h(B,u,N):
             k+=-1
         k+=1
 
-    # return eigenvalue, eig_vecs_sorted[N]
     return eig_vals_sorted, np.array(eig_vecs_sorted)
 
 def sublattice_polarization(a, print_sublattice=0):
     # sublattice polarization alpha
+    
     A=np.max(np.abs(a[0:dim]))
     Bp=np.max(np.abs(a[dim:2*dim]))
-    
-    # old interchange Ap, B
     Ap=np.max(np.abs(a[2*dim:3*dim]))
     B=np.max(np.abs(a[3*dim:]))
     
-    # print(np.abs(Ap)/np.abs(A))
+    print("A'/A", Ap/A)
+    print("B", B)
     
     if (print_sublattice):
         print("A:",A,"\nBp",Bp,"\nB",B,"\nAp",Ap)
     
-    alpha=np.around(A**2-Bp**2+B**2-Ap**2,3)
+    alpha=np.around(A**2+B**2-Ap**2-Bp**2,3)
     return alpha
-    # print("alpha", np.around(A**2-Bp**2+B**2-Ap**2,3))
 
 def sym_breaking(u):
     # u: interlayer electric potential energy difference
@@ -182,6 +202,46 @@ def sym_breaking(u):
     return e_symbreak
 
 ###
+
+def bg_bands():
+    
+    npts=100
+    energy=np.zeros((npts,npts,39))
+    # kr=20/(2*np.pi*a0)
+    kr=1/(2*np.pi*a0)
+    kx=np.linspace(-kr,kr,npts)
+    ky=np.linspace(-kr,kr,npts)
+    
+    u=-10**2 #mV
+    
+    for m in range(npts):
+        for n in range(npts):
+            k=np.array([kx[m],ky[n]])
+            # energy[m,n]=bg_z(k,u/J2meV)
+            energy[m,n]=g_h(31)
+    
+    # plt.imshow(energy[:,:,1])
+    # print(energy)
+
+    import pandas as pd
+    EinBZ = energy.flatten()
+    dataframe = pd.DataFrame(EinBZ)
+    dataframe.to_csv('EinBZ.csv', index=False, sep=',')
+    import seaborn as sns
+    data = np.loadtxt('EinBZ.csv', delimiter=',')
+    
+    # l=np.sqrt(hbar/(e*31))
+    # maxE=np.sqrt(3.1)*J2meV*hbar*v0*np.sqrt(2)/l
+    maxE = 10**2
+    
+    import seaborn as sns
+    sns.displot([i for i in data if (i<maxE and i>-maxE)], kind="hist", kde=False, bins=10**2)
+    plt.xlabel('Energy (meV)')
+    plt.ylabel('DOS')
+    plt.title('Density of states')
+    plt.show()
+
+bg_bands()
 
 def band_structure(plot=0):
     npts=100
@@ -238,14 +298,14 @@ def band_structure(plot=0):
     
     return energy
 
-evals, evecs = bg_h(31,0/J2meV,0)
+# evals, evecs = bg_h(30,0/J2meV,0)
 # print("energy", evals)
 
-r=3
-for k in range(mid-r,mid+r+1):
-    print("energy", evals[k])
-    print("polarization", sublattice_polarization(evecs[k]))
-    print("--")
+#r=3
+#for k in range(mid-r,mid+r+1):
+#    print("energy", evals[k])
+#    print("polarization", sublattice_polarization(evecs[k]))
+#    print("--")
 
 ###
 
