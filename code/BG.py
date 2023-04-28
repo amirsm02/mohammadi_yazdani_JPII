@@ -19,24 +19,24 @@ fig, ax = plt.subplots()
 
 ### paramters (SI units)
 
-dim = 500 # dimension of angular momentum space
+dim=500 # dimension of angular momentum space
 mid=int((4*dim-1)/2)-1
 
-hbar = 1.054571*10**(-34) # planck's constant (J*s)
-e = 1.60217663*10**(-19) # electron charge (C)
-J2meV = 10**3/e # joules to meV conversion factor
-a0 = 2.46*10**(-10) # graphene AA distance
+hbar=1.054571*10**(-34) # planck's constant (J*s)
+e=1.60217663*10**(-19) # electron charge (C)
+J2meV=10**3/e # joules to meV conversion factor
+a0=2.46*10**(-10) # graphene AA distance
+# m=9.1093837*10**(-31) # electron mass
 
 i=complex(0,1)
 
 ### Paramters
 
 # Hopping terms (J)
-g0 = 2.61*10**3/J2meV
-g1 = 0.361*10**3/J2meV
-g3 = 0#-0.283*10**3/J2meV
-g4 = -0.138*10**3/J2meV
-
+g0=2.61*10**3/J2meV
+g1=0.361*10**3/J2meV
+g3=0#-0.283*10**3/J2meV
+g4=-0.138*10**3/J2meV
 
 # symmetry-breaking
 # EZ=3.58/J2meV # Zeeman splitting, breaks spin symmetry
@@ -237,14 +237,12 @@ def B0_DOS(pt_den):
     
     global energy,layerpol,nsites,u
     nsites=len(sites)
-    u=0#0.06/(J2meV*10**(-3)) # meV
+    u=0.06/(J2meV*10**(-3)) # meV
 
     with mp.Pool(processes=16) as pool:
         result=np.array(pool.map(B0_DOS_process,sites))
         energy=np.array(result[:,0],dtype=float)
         layerpol=np.array(result[:,1],dtype=float)
-    
-    print(layerpol)
     
     global minE,maxE,r
     r=200
@@ -258,31 +256,31 @@ def B0_DOS(pt_den):
     
     # chemical potential as a function of gate voltage
     energy_range=np.linspace(minE,maxE,r)
-    # VG=np.zeros((r))
-    # dmu=(maxE-minE)/r
-    # VG[0]=DOS[0]*dmu
-    # for m in range(1,r):
-        # VG[m]=VG[m-1]+DOS[m]
-    # VG=dmu*VG
-    # VG=VG-VG[99] # VG(mu=0)=0
+    VG=np.zeros((r))
+    dmu=(maxE-minE)/r
+    VG[0]=DOS[0]*dmu
+    for m in range(1,r):
+        VG[m]=VG[m-1]+DOS[m]
+    VG=dmu*VG
+    VG=VG-VG[99] # VG(mu=0)=0
     
-    #unique=np.unique(VG,return_index=True)
-    #VG_unique=unique[0]
-    #VG_indices=unique[1]
-    #mu=energy_range[VG_indices]
-    #plt.plot(VG_unique,mu)
+    unique=np.unique(VG,return_index=True)
+    VG_unique=unique[0]
+    VG_indices=unique[1]
+    mu=energy_range[VG_indices]
+    plt.plot(VG_unique,mu)
     
-    plt.plot(energy_range,DOS)
-    plt.xlabel('Energy (meV)')
-    plt.ylabel('DOS')
+    #plt.plot(energy_range,DOS)
+    #plt.xlabel('Energy (meV)')
+    #plt.ylabel('DOS')
     #plt.title('Density of states')
     
-    #plt.plot(energy_range,VG)
-    #plt.ylabel(r"$\mu$ (meV)")
-    #plt.xlabel(r"V$_G$ (mV)")
+    # plt.plot(energy_range,VG)
+    plt.ylabel("Chemical potential (meV)")
+    plt.xlabel("Gate voltage (mV)")
     
     #name=str(pt_den)
-    name="npts=500_r=200"
+    name="A"
     plt.savefig("./plots/"+name+".png",bbox_inches="tight")
 
 def B0_DOS_process(k):
@@ -303,7 +301,7 @@ def B0_plot_process(d):
     for e in range(8):
         for m in range(nsites):
             if ((energy[m,e]<emax) & (energy[m,e]>=emin)):
-                DOS+=layerpol[m,e]
+                DOS+=1#layerpol[m,e]
     return DOS
     
 def BN0_DOS(B):
@@ -312,31 +310,31 @@ def BN0_DOS(B):
     u=0.06/(J2meV*10**(-3)) # meV
     evalsP,evecsP=bg_BN0(1,B,u)
     evalsM,evecsM=bg_BN0(-1,B,u)
-    energy=np.sort(np.append(evalsP,evalsM))
+    energy=np.append(evalsP,evalsM) # np.sort messes DOS up!
     layerpol=np.zeros((2*(4*dim-1)))
-    
+
     for e in range(4*dim-1):
        layerpol[e]=layerpolarization(evecsP[e],1,1) # valley +1
        layerpol[e+(4*dim-1)]=layerpolarization(evecsM[e],-1,1) # valley -1
 
     global minE,maxE,r
-    r=1000
+    r=1000 # 200
     E=80 # (meV)
     maxE=E
     minE=-E
-    name=str(dim)
 
-    with mp.Pool(processes=2) as pool:
+    with mp.Pool(processes=16) as pool:
         DOS=np.array(pool.map(BN0_plot_process,range(r)))
     
     return DOS,energy
     
+    # name=str(dim)
     # energy_range=np.linspace(minE,maxE,r)
     # plt.plot(energy_range,DOS)
     # plt.xlabel('Energy (meV)')
     # plt.ylabel('DOS')
-    # plt.title('Density of states')
-    # plt.savefig("./plots/"+name+"_BN0.png",bbox_inches="tight")
+    # # plt.title('Density of states')
+    # plt.savefig("./plots/"+name+".png",bbox_inches="tight")
     
 def BN0_plot_process(d):
     global minE,maxE,r
@@ -398,7 +396,8 @@ if (__name__ == '__main__'):
     
     t = time.time()
     B0_DOS(args.pt_den)
-    # DOS6,E6=BN0_DOS(B=6) #DOS6=BN0_DOS(B=6)
+    # BN0_DOS(B=6)
+    #DOS6,E6=BN0_DOS(B=6) #DOS6=BN0_DOS(B=6)
     #DOS7,E7=BN0_DOS(B=7) #DOS7=BN0_DOS(B=7)
     # B0_bands(2,args.pt_den)
     print(time.time()-t)
@@ -413,11 +412,11 @@ if (__name__ == '__main__'):
     
     # energy_range=np.linspace(-80,80,1000)
     # plt.plot(energy_range,DOS6,color="blue",label="6T")
-    # # plt.plot(energy_range,DOS7,color="red",label="7T")
+    # plt.plot(energy_range,DOS7,color="red",label="7T")
     # name=str(dim)
     
-    # plt.legend()
+    # plt.legend(loc='center right')
     # plt.xlabel('Energy (meV)')
     # plt.ylabel('DOS')
     # # plt.title('Density of states')
-    # plt.savefig("./plots/"+name+"_BN0.png",bbox_inches="tight")
+    # plt.savefig("./plots/"+name+".png",bbox_inches="tight")
