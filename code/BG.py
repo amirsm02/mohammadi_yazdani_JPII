@@ -395,28 +395,28 @@ if (__name__ == '__main__'):
     warnings.filterwarnings("ignore")
     
     t = time.time()
-    B0_DOS(args.pt_den)
+    # B0_DOS(args.pt_den)
     # BN0_DOS(B=6)
-    #DOS6,E6=BN0_DOS(B=6) #DOS6=BN0_DOS(B=6)
-    #DOS7,E7=BN0_DOS(B=7) #DOS7=BN0_DOS(B=7)
+    DOS6,E6=BN0_DOS(B=6) #DOS6=BN0_DOS(B=6)
+    DOS7,E7=BN0_DOS(B=8) #DOS7=BN0_DOS(B=7)
     # B0_bands(2,args.pt_den)
     print(time.time()-t)
     print("---")
     
     # Calculate difference in energy levels
-    # for m in range(len(E6)):
-        # if ((np.abs(E6[m])<80) & (E6[m]>=0)):
-            # print(E6[m],E7[m])
-            # print(E7[m]-E6[m])
-            # print("-")
+    for m in range(len(E6)):
+        if ((np.abs(E6[m])<80) & (E6[m]>=0)):
+            print(E6[m],E7[m])
+            print(E7[m]-E6[m])
+            print("-")
     
-    # energy_range=np.linspace(-80,80,1000)
-    # plt.plot(energy_range,DOS6,color="blue",label="6T")
-    # plt.plot(energy_range,DOS7,color="red",label="7T")
-    # name=str(dim)
+    energy_range=np.linspace(-80,80,1000)
+    plt.plot(energy_range,DOS6,color="blue",label="6T")
+    plt.plot(energy_range,DOS7,color="red",label="7T")
+    name=str(dim)
     
-    # plt.legend(loc='center right')
-    # plt.xlabel('Energy (meV)')
-    # plt.ylabel('DOS')
-    # # plt.title('Density of states')
-    # plt.savefig("./plots/"+name+".png",bbox_inches="tight")
+    plt.legend(loc='center right')
+    plt.xlabel('Energy (meV)')
+    plt.ylabel('DOS')
+    # plt.title('Density of states')
+    plt.savefig("./plots/"+name+".png",bbox_inches="tight")
