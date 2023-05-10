@@ -126,7 +126,8 @@ def bg_B0(eta,k,u):
     # return eigenstate of nth level, and all energy levels
     # eta=+-1 for K,K' respectively
 
-    pi=f(k)
+    pi=k[0]-i*k[1]
+    # pi=f(k)
     pid=np.conjugate(pi)
 
     h=J2meV*np.array([[eta*u/2,g3*pi,g4*pid,g0*pid],
@@ -237,7 +238,7 @@ def B0_DOS(pt_den):
     
     global energy,layerpol,nsites,u
     nsites=len(sites)
-    u=0.06/(J2meV*10**(-3)) # meV
+    u=0 #0.06/(J2meV*10**(-3)) # meV
 
     with mp.Pool(processes=16) as pool:
         result=np.array(pool.map(B0_DOS_process,sites))
@@ -254,30 +255,29 @@ def B0_DOS(pt_den):
         DOS=np.array(pool.map(B0_plot_process,range(r)))
     # DOS=DOS*(dk2/(2*np.pi)**2) # confused about this
     
-    # chemical potential as a function of gate voltage
+    ### chemical potential as a function of gate voltage
     energy_range=np.linspace(minE,maxE,r)
-    VG=np.zeros((r))
-    dmu=(maxE-minE)/r
-    VG[0]=DOS[0]*dmu
-    for m in range(1,r):
-        VG[m]=VG[m-1]+DOS[m]
-    VG=dmu*VG
-    VG=VG-VG[99] # VG(mu=0)=0
+    # VG=np.zeros((r))
+    # dmu=(maxE-minE)/r
+    # VG[0]=DOS[0]*dmu
+    # for m in range(1,r):
+        # VG[m]=VG[m-1]+DOS[m]
+    # VG=dmu*VG
+    # VG=VG-VG[99] # VG(mu=0)=0
+    # unique=np.unique(VG,return_index=True)
+    # VG_unique=unique[0]
+    # VG_indices=unique[1]
+    # mu=energy_range[VG_indices]
+    # plt.plot(VG_unique,mu)
     
-    unique=np.unique(VG,return_index=True)
-    VG_unique=unique[0]
-    VG_indices=unique[1]
-    mu=energy_range[VG_indices]
-    plt.plot(VG_unique,mu)
-    
-    #plt.plot(energy_range,DOS)
-    #plt.xlabel('Energy (meV)')
-    #plt.ylabel('DOS')
-    #plt.title('Density of states')
+    plt.plot(energy_range,DOS)
+    plt.xlabel('Energy (meV)')
+    plt.ylabel('DOS')
+    plt.title('Density of states')
     
     # plt.plot(energy_range,VG)
-    plt.ylabel("Chemical potential (meV)")
-    plt.xlabel("Gate voltage (mV)")
+    #plt.ylabel("Chemical potential (meV)")
+    #plt.xlabel("Gate voltage (mV)")
     
     #name=str(pt_den)
     name="A"
@@ -307,11 +307,16 @@ def B0_plot_process(d):
 def BN0_DOS(B):
     global energy,layerpol
     
-    u=0.06/(J2meV*10**(-3)) # meV
+    u=0/(J2meV*10**(-3))#0.06/(J2meV*10**(-3)) # meV
     evalsP,evecsP=bg_BN0(1,B,u)
     evalsM,evecsM=bg_BN0(-1,B,u)
     energy=np.append(evalsP,evalsM) # np.sort messes DOS up!
     layerpol=np.zeros((2*(4*dim-1)))
+    
+    evalsM=np.sort(evalsM)
+    for e in range(len(evalsP)):
+        if (np.abs(evalsM[e])<150):
+            print(evalsM[e])
 
     for e in range(4*dim-1):
        layerpol[e]=layerpolarization(evecsP[e],1,1) # valley +1
@@ -326,15 +331,15 @@ def BN0_DOS(B):
     with mp.Pool(processes=16) as pool:
         DOS=np.array(pool.map(BN0_plot_process,range(r)))
     
-    return DOS,energy
+    # return DOS,energy
     
-    # name=str(dim)
-    # energy_range=np.linspace(minE,maxE,r)
-    # plt.plot(energy_range,DOS)
-    # plt.xlabel('Energy (meV)')
-    # plt.ylabel('DOS')
-    # # plt.title('Density of states')
-    # plt.savefig("./plots/"+name+".png",bbox_inches="tight")
+    name="A"#str(dim)
+    energy_range=np.linspace(minE,maxE,r)
+    plt.plot(energy_range,DOS)
+    plt.xlabel('Energy (meV)')
+    plt.ylabel('DOS')
+    # plt.title('Density of states')
+    plt.savefig("./plots/"+name+".png",bbox_inches="tight")
     
 def BN0_plot_process(d):
     global minE,maxE,r
@@ -343,16 +348,17 @@ def BN0_plot_process(d):
     DOS=0
     for e in range(2*(4*dim-1)):
         if ((energy[e]<emax) & (energy[e]>=emin)):
-            DOS+=1#layerpol[e]
+            DOS+=1 #layerpol[e]
     return DOS
 
 ### Band structure
 
-def B0_bands(band_index,pt_den):
+def B0_bandBZ(band_index,pt_den):
     # single band structure
     # band_index=0-3
+    # valley does not make sense when using f(k)
     
-    u=0.06/(J2meV*10**(-3))
+    u=0#0.06/(J2meV*10**(-3))
     
     kr=np.around(4*np.pi/(3*a0)*(np.sqrt(3)/2),3) # BZ
     sites=hex_grid(pt_den,kr,np.pi/2)
@@ -385,7 +391,33 @@ def B0_bands(band_index,pt_den):
     plt.xlim([-rng,rng])
     plt.ylim([-rng,rng])
     plt.scatter(sites[:,0], sites[:,1], s=1, color=plot_color, marker='s')
-    plt.show()
+    
+    #import matplotlib as mpl
+    #cmap=mpl.cm.cool
+    #norm=mpl.colors.Normalize(vmin=5, vmax=10)
+    #cb1=mpl.colorbar.ColorbarBase(ax,cmap=cmap,norm=norm,orientation='vertical')
+
+    name="A"
+    plt.savefig("./plots/"+name+".png",bbox_inches="tight")
+    # plt.show()
+
+def B0_bandline(pt_den):
+
+    u=0.06/(J2meV*10**(-3))
+    kr=1
+    energy=np.zeros((pt_den,4))
+    
+    k=np.linspace(-kr,kr,pt_den)
+    for m in range(pt_den):
+        BG=bg_B0(1,[k[m],0],u) # valley=+1
+        energy[m]=BG[0]
+    
+    plt.plot(k,energy)
+    plt.xlabel(r"$k_x$ (1/m)")
+    plt.ylabel(r"Energy (meV)")
+    
+    name="A"
+    plt.savefig("./plots/"+name+".png",bbox_inches="tight",dpi=300)
 
 if (__name__ == '__main__'):
     parser = argparse.ArgumentParser(description='')
@@ -396,27 +428,7 @@ if (__name__ == '__main__'):
     
     t = time.time()
     # B0_DOS(args.pt_den)
-    # BN0_DOS(B=6)
-    DOS6,E6=BN0_DOS(B=6) #DOS6=BN0_DOS(B=6)
-    DOS7,E7=BN0_DOS(B=8) #DOS7=BN0_DOS(B=7)
-    # B0_bands(2,args.pt_den)
+    # BN0_DOS(B=8)
+    # B0_bandBZ(0,args.pt_den)
+    B0_bandline(args.pt_den)
     print(time.time()-t)
-    print("---")
-    
-    # Calculate difference in energy levels
-    for m in range(len(E6)):
-        if ((np.abs(E6[m])<80) & (E6[m]>=0)):
-            print(E6[m],E7[m])
-            print(E7[m]-E6[m])
-            print("-")
-    
-    energy_range=np.linspace(-80,80,1000)
-    plt.plot(energy_range,DOS6,color="blue",label="6T")
-    plt.plot(energy_range,DOS7,color="red",label="7T")
-    name=str(dim)
-    
-    plt.legend(loc='center right')
-    plt.xlabel('Energy (meV)')
-    plt.ylabel('DOS')
-    # plt.title('Density of states')
-    plt.savefig("./plots/"+name+".png",bbox_inches="tight")
