@@ -126,8 +126,8 @@ def bg_B0(eta,k,u):
     # return eigenstate of nth level, and all energy levels
     # eta=+-1 for K,K' respectively
 
-    pi=k[0]-i*k[1]
-    # pi=f(k)
+    # pi=k[0]-i*k[1]
+    pi=f(k)
     pid=np.conjugate(pi)
 
     h=J2meV*np.array([[eta*u/2,g3*pi,g4*pid,g0*pid],
@@ -168,21 +168,24 @@ def bg_BN0(eta,B,u):
     eig_vals_sorted=np.sort(eigenvalue)
     
     # remove high-level states (there is no maximum state)
-    ad_diag=np.array(scipy.linalg.block_diag(ad,ad,ad,ad))
+    
+    issue=np.zeros((0),dtype=int)
     k=0
-    while (k<len(eig_vecs_sorted)):
-        raised_eig=ad_diag@np.transpose(eig_vecs_sorted[k])
-        if (not np.any(raised_eig)):
-            eig_vecs_sorted=np.delete(eig_vecs_sorted,k,0)
-            eig_vals_sorted=np.delete(eig_vals_sorted,k,0)
-            k+=-1
-        k+=1
-
-    return eig_vals_sorted, np.array(eig_vecs_sorted)
+    thsld=10**-5
+    for k in range(len(eig_vecs_sorted)):
+        for j in range(1,5):
+            if (np.abs(eig_vecs_sorted[k,j*dim-1])>thsld):
+                issue=np.append(issue,int(k))
+    
+    if (len(issue)!=0):
+        eig_vecs_sorted=np.delete(eig_vecs_sorted,issue,0)
+        eig_vals_sorted=np.delete(eig_vals_sorted,issue,0)
+    
+    return eig_vals_sorted, eig_vecs_sorted
 
 ### Auxiliary functions
 
-def layerpolarization(a,eta,Bonoff):
+def layerpolarization(a,eta,Bonoff,opt=0):
     # layer polarization (alpha)
     
     if (Bonoff):
@@ -210,36 +213,30 @@ def layerpolarization(a,eta,Bonoff):
     
     norm=A**2+B**2+Ap**2+Bp**2
     # alpha=(A**2+B**2-Ap**2-Bp**2)/norm
-    beta=(A**2+B**2)/norm
+    # beta=(A**2+B**2)/norm
+    # beta=B**2/norm
+    
+    opt=0
+    
+    #if (opt==0):
+    #    beta=A**2/norm
+    #else:
+    #    beta=B**2/norm
+    # beta=1
     return beta
-
-def sym_breaking(u):
-    # u: interlayer electric potential energy difference
-
-    # symmetry-breaking of ZLL, 8 flavors
-    spin=[1/2,-1/2]
-    alpha=[1,0.63] 
-    N=[0,1]
-    eta=[-1,1]
-    
-    e_symbreak=np.zeros((2,2,2))
-    for i in range(2): # spin
-        for j in range(2): # orbital
-            for k in range(2): # valley
-                e_symbreak[i,j,k]=-EZ*spin[i]+N[j]*D10-u/2*eta[k]*alpha[j]
-    
-    return e_symbreak
 
 ### Density of states
 
-def B0_DOS(pt_den):
+def B0_DOS(pt_den,ue):
     kr=np.around(4*np.pi/(3*a0)*(np.sqrt(3)/2),3) # BG
     sites=hex_grid(pt_den,kr,np.pi/2)
     
-    global energy,layerpol,nsites,u
+    global energy,layerpol,nsites,u,opt
     nsites=len(sites)
-    u=0 #0.06/(J2meV*10**(-3)) # meV
+    u=ue/(J2meV*10**(-3)) # meV
+    # u=0.06/(J2meV*10**(-3)) # meV
 
+    opt=0
     with mp.Pool(processes=16) as pool:
         result=np.array(pool.map(B0_DOS_process,sites))
         energy=np.array(result[:,0],dtype=float)
@@ -257,6 +254,19 @@ def B0_DOS(pt_den):
     
     ### chemical potential as a function of gate voltage
     energy_range=np.linspace(minE,maxE,r)
+    plt.plot(energy_range,DOS,color="blue",label="A")
+    
+    opt=1
+    with mp.Pool(processes=16) as pool:
+        result=np.array(pool.map(B0_DOS_process,sites))
+        energy=np.array(result[:,0],dtype=float)
+        layerpol=np.array(result[:,1],dtype=float)
+    
+    with mp.Pool(processes=16) as pool:
+        DOS2=np.array(pool.map(B0_plot_process,range(r)))
+    plt.plot(energy_range,DOS2,color="red",label="B")
+    plt.legend()
+    
     # VG=np.zeros((r))
     # dmu=(maxE-minE)/r
     # VG[0]=DOS[0]*dmu
@@ -269,19 +279,17 @@ def B0_DOS(pt_den):
     # VG_indices=unique[1]
     # mu=energy_range[VG_indices]
     # plt.plot(VG_unique,mu)
+    # plt.ylabel("Chemical potential (meV)")
+    # plt.xlabel("Carrier density")
     
-    plt.plot(energy_range,DOS)
+    
     plt.xlabel('Energy (meV)')
     plt.ylabel('DOS')
-    plt.title('Density of states')
-    
-    # plt.plot(energy_range,VG)
-    #plt.ylabel("Chemical potential (meV)")
-    #plt.xlabel("Gate voltage (mV)")
-    
+    # plt.title('Density of states')
+
     #name=str(pt_den)
     name="A"
-    plt.savefig("./plots/"+name+".png",bbox_inches="tight")
+    plt.savefig("./plots/"+name+".png",bbox_inches="tight",dpi=300)
 
 def B0_DOS_process(k):
     evalsP,evecsP=bg_B0(1,k,u)
@@ -289,8 +297,8 @@ def B0_DOS_process(k):
     energy=np.append(evalsP,evalsM)
     layerpol=np.zeros((8))
     for e in range(4):
-        layerpol[e]=layerpolarization(evecsP[e],1,0) # valley +1
-        layerpol[e+4]=layerpolarization(evecsM[e],-1,0) # valley -1
+        layerpol[e]=layerpolarization(evecsP[e],1,0,opt) # valley +1
+        layerpol[e+4]=layerpolarization(evecsM[e],-1,0,opt) # valley -1
     return np.array(energy), np.array(layerpol)
 
 def B0_plot_process(d):
@@ -301,30 +309,35 @@ def B0_plot_process(d):
     for e in range(8):
         for m in range(nsites):
             if ((energy[m,e]<emax) & (energy[m,e]>=emin)):
-                DOS+=1#layerpol[m,e]
+                DOS+=layerpol[m,e]
     return DOS
     
-def BN0_DOS(B):
-    global energy,layerpol
-    
-    u=0/(J2meV*10**(-3))#0.06/(J2meV*10**(-3)) # meV
+def BN0_DOS(B,u):
+    global energy,layerpol,nevalsM,nevalsP
+    u=u/(J2meV*10**(-3))
+    # u=0.06/(J2meV*10**(-3)) # meV
     evalsP,evecsP=bg_BN0(1,B,u)
     evalsM,evecsM=bg_BN0(-1,B,u)
     energy=np.append(evalsP,evalsM) # np.sort messes DOS up!
-    layerpol=np.zeros((2*(4*dim-1)))
-    
-    evalsM=np.sort(evalsM)
-    for e in range(len(evalsP)):
-        if (np.abs(evalsM[e])<150):
-            print(evalsM[e])
+    nevalsP=len(evalsP)
+    nevalsM=len(evalsM)
+    layerpol=np.zeros((nevalsP+nevalsM))
 
-    for e in range(4*dim-1):
+    for e in range(nevalsP):
        layerpol[e]=layerpolarization(evecsP[e],1,1) # valley +1
-       layerpol[e+(4*dim-1)]=layerpolarization(evecsM[e],-1,1) # valley -1
+    for e in range(nevalsM):
+        layerpol[nevalsP+e]=layerpolarization(evecsM[e],-1,1) # valley -1
+
+    # energy=np.sort(energy) # REMOVE
+    # for m in range(len(energy)):
+        # e=energy[m]
+        # # lp=layerpol[m]
+        # if (np.abs(e)<50):
+            # print(e)
 
     global minE,maxE,r
     r=1000 # 200
-    E=80 # (meV)
+    E=150 # 80 # (meV)
     maxE=E
     minE=-E
 
@@ -333,78 +346,40 @@ def BN0_DOS(B):
     
     # return DOS,energy
     
-    name="A"#str(dim)
-    energy_range=np.linspace(minE,maxE,r)
-    plt.plot(energy_range,DOS)
+    # energy_range=np.linspace(minE,maxE,r)
+    # plt.plot(energy_range,DOS,color="blue",label="A")
+    
+    # for e in range(nevalsP):
+       # layerpol[e]=layerpolarization(evecsP[e],1,1,opt=1) # valley +1
+    # for e in range(nevalsM):
+        # layerpol[nevalsP+e]=layerpolarization(evecsM[e],-1,1,opt=1) # valley -1
+        
+    # with mp.Pool(processes=16) as pool:
+        # DOS2=np.array(pool.map(BN0_plot_process,range(r)))
+    
+    # plt.plot(energy_range,DOS2,color="red",label="B")
+    # plt.legend()
+    
+    name="A"
     plt.xlabel('Energy (meV)')
     plt.ylabel('DOS')
     # plt.title('Density of states')
-    plt.savefig("./plots/"+name+".png",bbox_inches="tight")
+    plt.savefig("./plots/"+name+".png",bbox_inches="tight",dpi=300)
     
 def BN0_plot_process(d):
     global minE,maxE,r
     emin=minE+d/r*(maxE-minE)
     emax=minE+(d+1)/r*(maxE-minE)
     DOS=0
-    for e in range(2*(4*dim-1)):
-        if ((energy[e]<emax) & (energy[e]>=emin)):
-            DOS+=1 #layerpol[e]
+    for e in range(nevalsP+nevalsM):
+        if ((energy[e]<emax) and (energy[e]>=emin)):
+            DOS+=layerpol[e]
     return DOS
-
-### Band structure
-
-def B0_bandBZ(band_index,pt_den):
-    # single band structure
-    # band_index=0-3
-    # valley does not make sense when using f(k)
-    
-    u=0#0.06/(J2meV*10**(-3))
-    
-    kr=np.around(4*np.pi/(3*a0)*(np.sqrt(3)/2),3) # BZ
-    sites=hex_grid(pt_den,kr,np.pi/2)
-    
-    energy=np.zeros((2,len(sites)))
-    layerpol=np.zeros((2,len(sites)))
-    
-    for m in range(len(sites)):
-        k=np.array([sites[m,0],sites[m,1]])
-        BG=bg_B0(1,k,u) # valley=+1
-        layerpol[0,m]=layerpolarization(BG[1][band_index],1,0)
-        energy[0,m]=BG[0][band_index]
-        
-        BG=bg_B0(-1,k,u) # valley=-1
-        layerpol[1,m]=layerpolarization(BG[1][band_index],-1,0)
-        energy[1,m]=BG[0][band_index]
-    
-    abs_max = max(np.abs(energy.min()), np.abs(energy.max()))
-    cNorm  = colors.Normalize(vmin=-abs_max, vmax=abs_max)
-    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=plt.get_cmap('seismic'))
-
-    plot_color = [0]*len(sites)
-    for m in range(len(sites)):
-        plot_color[m] = scalarMap.to_rgba(energy[0,m]*layerpol[0,m]+energy[1,m]*layerpol[1,m])
-    
-    rng=2/np.sqrt(3)*kr
-    plt.gca().set_aspect(1.0)
-    plt.xlabel(r"$k_x$")
-    plt.ylabel(r"$k_y$")
-    plt.xlim([-rng,rng])
-    plt.ylim([-rng,rng])
-    plt.scatter(sites[:,0], sites[:,1], s=1, color=plot_color, marker='s')
-    
-    #import matplotlib as mpl
-    #cmap=mpl.cm.cool
-    #norm=mpl.colors.Normalize(vmin=5, vmax=10)
-    #cb1=mpl.colorbar.ColorbarBase(ax,cmap=cmap,norm=norm,orientation='vertical')
-
-    name="A"
-    plt.savefig("./plots/"+name+".png",bbox_inches="tight")
-    # plt.show()
 
 def B0_bandline(pt_den):
 
-    u=0.06/(J2meV*10**(-3))
-    kr=1
+    u=0/(J2meV*10**(-3))
+    kr=0.5
     energy=np.zeros((pt_den,4))
     
     k=np.linspace(-kr,kr,pt_den)
@@ -421,14 +396,16 @@ def B0_bandline(pt_den):
 
 if (__name__ == '__main__'):
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument("-pt_den", type=int, default=50)
+    parser.add_argument("-pt_den", type=int, default=500)
+    parser.add_argument("-B", type=float, default=6)
+    parser.add_argument("-u", type=float, default=0)
 
     args = parser.parse_args()
     warnings.filterwarnings("ignore")
     
     t = time.time()
-    # B0_DOS(args.pt_den)
-    # BN0_DOS(B=8)
+    B0_DOS(args.pt_den,ue=args.u)
+    # BN0_DOS(B=args.B,u=args.u)
     # B0_bandBZ(0,args.pt_den)
-    B0_bandline(args.pt_den)
+    # B0_bandline(args.pt_den)
     print(time.time()-t)
