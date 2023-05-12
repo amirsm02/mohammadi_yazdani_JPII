@@ -216,12 +216,11 @@ def layerpolarization(a,eta,Bonoff,opt=0):
     # beta=(A**2+B**2)/norm
     # beta=B**2/norm
     
-    opt=0
-    
-    #if (opt==0):
-    #    beta=A**2/norm
-    #else:
-    #    beta=B**2/norm
+    if (opt==0):
+        beta=1
+        # beta=A**2/norm
+    else:
+        beta=(A**2+B**2)/norm
     # beta=1
     return beta
 
@@ -232,11 +231,11 @@ def B0_DOS(pt_den,ue):
     sites=hex_grid(pt_den,kr,np.pi/2)
     
     global energy,layerpol,nsites,u,opt
+    opt=0
     nsites=len(sites)
     u=ue/(J2meV*10**(-3)) # meV
     # u=0.06/(J2meV*10**(-3)) # meV
 
-    opt=0
     with mp.Pool(processes=16) as pool:
         result=np.array(pool.map(B0_DOS_process,sites))
         energy=np.array(result[:,0],dtype=float)
@@ -254,37 +253,26 @@ def B0_DOS(pt_den,ue):
     
     ### chemical potential as a function of gate voltage
     energy_range=np.linspace(minE,maxE,r)
-    plt.plot(energy_range,DOS,color="blue",label="A")
+    # plt.plot(energy_range,DOS,color="blue",label="A")
     
-    opt=1
-    with mp.Pool(processes=16) as pool:
-        result=np.array(pool.map(B0_DOS_process,sites))
-        energy=np.array(result[:,0],dtype=float)
-        layerpol=np.array(result[:,1],dtype=float)
-    
-    with mp.Pool(processes=16) as pool:
-        DOS2=np.array(pool.map(B0_plot_process,range(r)))
-    plt.plot(energy_range,DOS2,color="red",label="B")
-    plt.legend()
-    
-    # VG=np.zeros((r))
-    # dmu=(maxE-minE)/r
-    # VG[0]=DOS[0]*dmu
-    # for m in range(1,r):
-        # VG[m]=VG[m-1]+DOS[m]
-    # VG=dmu*VG
-    # VG=VG-VG[99] # VG(mu=0)=0
-    # unique=np.unique(VG,return_index=True)
-    # VG_unique=unique[0]
-    # VG_indices=unique[1]
-    # mu=energy_range[VG_indices]
-    # plt.plot(VG_unique,mu)
-    # plt.ylabel("Chemical potential (meV)")
-    # plt.xlabel("Carrier density")
+    VG=np.zeros((r))
+    dmu=(maxE-minE)/r
+    VG[0]=DOS[0]*dmu
+    for m in range(1,r):
+        VG[m]=VG[m-1]+DOS[m]
+    VG=dmu*VG
+    VG=VG-VG[99] # VG(mu=0)=0
+    unique=np.unique(VG,return_index=True)
+    VG_unique=unique[0]
+    VG_indices=unique[1]
+    mu=energy_range[VG_indices]
+    plt.plot(VG_unique,mu)
+    plt.ylabel("Chemical potential (meV)")
+    plt.xlabel("Carrier density")
     
     
-    plt.xlabel('Energy (meV)')
-    plt.ylabel('DOS')
+    # plt.xlabel('Energy (meV)')
+    # plt.ylabel('DOS')
     # plt.title('Density of states')
 
     #name=str(pt_den)
@@ -336,7 +324,7 @@ def BN0_DOS(B,u):
             # print(e)
 
     global minE,maxE,r
-    r=1000 # 200
+    r=2000 # 200
     E=150 # 80 # (meV)
     maxE=E
     minE=-E
@@ -346,19 +334,19 @@ def BN0_DOS(B,u):
     
     # return DOS,energy
     
-    # energy_range=np.linspace(minE,maxE,r)
-    # plt.plot(energy_range,DOS,color="blue",label="A")
+    energy_range=np.linspace(minE,maxE,r)
+    plt.plot(energy_range,DOS,color="blue",label="ALL")#"A")
     
-    # for e in range(nevalsP):
-       # layerpol[e]=layerpolarization(evecsP[e],1,1,opt=1) # valley +1
-    # for e in range(nevalsM):
-        # layerpol[nevalsP+e]=layerpolarization(evecsM[e],-1,1,opt=1) # valley -1
+    for e in range(nevalsP):
+       layerpol[e]=layerpolarization(evecsP[e],1,1,opt=1) # valley +1
+    for e in range(nevalsM):
+        layerpol[nevalsP+e]=layerpolarization(evecsM[e],-1,1,opt=1) # valley -1
         
-    # with mp.Pool(processes=16) as pool:
-        # DOS2=np.array(pool.map(BN0_plot_process,range(r)))
+    with mp.Pool(processes=16) as pool:
+        DOS2=np.array(pool.map(BN0_plot_process,range(r)))
     
-    # plt.plot(energy_range,DOS2,color="red",label="B")
-    # plt.legend()
+    plt.plot(energy_range,DOS2,color="red",label="TL")#"B")
+    plt.legend(loc="upper right")
     
     name="A"
     plt.xlabel('Energy (meV)')
@@ -404,8 +392,8 @@ if (__name__ == '__main__'):
     warnings.filterwarnings("ignore")
     
     t = time.time()
-    B0_DOS(args.pt_den,ue=args.u)
-    # BN0_DOS(B=args.B,u=args.u)
+    # B0_DOS(args.pt_den,ue=args.u)
+    BN0_DOS(B=args.B,u=args.u)
     # B0_bandBZ(0,args.pt_den)
     # B0_bandline(args.pt_den)
     print(time.time()-t)
